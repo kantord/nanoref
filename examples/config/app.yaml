@@ -1,0 +1,21 @@
+server:
+  host: 0.0.0.0
+  port: 8080
+  workers: 4
+
+database:
+  url: postgresql://app:${DB_PASSWORD}@db.internal:5432/appdb
+  # Pool size chosen after load testing at 4 workers × 10 = 40 max connections.
+  # Tuning rationale: nref-B7Uc71yVYaKQehxHdpJ55dg
+  pool_size: 10
+  pool_timeout_seconds: 5
+
+auth:
+  jwt_algorithm: HS256
+  # Secret injected at deploy time via Vault. Manual rotation procedure:
+  # nref-EpbgIhJ9p89YzVSHr9dfRB3
+  jwt_secret_env: JWT_SECRET
+
+logging:
+  level: info
+  format: json

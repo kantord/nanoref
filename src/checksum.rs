@@ -1,15 +1,14 @@
 use sha2::{Digest, Sha256};
 
 // nanoid default URL-safe alphabet, 64 symbols — used for the check characters.
-const ALPHABET: &[u8; 64] =
-    b"_-0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
+const ALPHABET: &[u8; 64] = b"_-0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
 pub const SALT_V1: &[u8] = b"nref-version-1";
 
 /// Compute the two check characters for `body` under `salt`.
 ///
-/// check1 = SHA-256(salt + body)[0] % 64
-/// check2 = SHA-256(salt + body)[1] % 64
+/// check1 = SHA-256(salt + body)\[0\] % 64
+/// check2 = SHA-256(salt + body)\[1\] % 64
 ///
 /// Two characters (12 bits) give a 1/4096 collision probability between
 /// versions, making version discrimination reliable across large codebases.
@@ -31,6 +30,15 @@ mod tests {
 
     // Nanoid URL-safe alphabet — same set check_chars maps into.
     const BODY_PATTERN: &str = "[_\\-0-9a-zA-Z]{21}";
+
+    #[test]
+    fn check_chars_uses_modulo_not_integer_division() {
+        // SHA-256("nref-version-1" + "a"*21)[0] = 0x9e (158), [1] = 0x92 (146).
+        // 158 % 64 = 30 → 's';  158 / 64 = 2 → '0'  (they differ).
+        // 146 % 64 = 18 → 'g';  146 / 64 = 2 → '0'  (they differ).
+        let body = "aaaaaaaaaaaaaaaaaaaaa";
+        assert_eq!(check_chars(SALT_V1, body), ('s', 'g'));
+    }
 
     proptest! {
         #[test]

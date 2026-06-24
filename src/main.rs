@@ -9,7 +9,10 @@ mod mint;
 mod search;
 
 #[derive(Parser)]
-#[command(name = "nref", about = "Database-free information linking using global references")]
+#[command(
+    name = "nref",
+    about = "Database-free information linking using global references"
+)]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
@@ -35,7 +38,10 @@ fn main() -> Result<()> {
     let cli = Cli::parse();
     match cli.command {
         Commands::Ls { path } => ls::run(&path),
-        Commands::Mint => mint::run(),
+        Commands::Mint => {
+            mint::run();
+            Ok(())
+        }
         Commands::Check { path } => {
             let errors = check::run(&path)?;
             if errors > 0 {

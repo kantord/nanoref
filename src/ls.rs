@@ -1,4 +1,4 @@
-use crate::search;
+use crate::search::{self, ContextWindow, HitWithContext, Span};
 use anyhow::Result;
 use owo_colors::OwoColorize;
 use std::collections::BTreeMap;
@@ -10,52 +10,73 @@ use std::path::Path;
 const MARKER_RE: &str = r"\bnref-[A-Za-z0-9_-]{23}";
 const CONTEXT: usize = 3;
 
-fn highlight_match(line: &str, offset: usize, len: usize) -> String {
-    let end = offset + len;
-    format!(
-        "{}{}{}",
-        &line[..offset],
-        (&line[offset..end]).red().bold(),
-        &line[end..]
-    )
+struct OccurrencePrinter {
+    last_path: Option<String>,
+    count: usize,
+}
+
+impl OccurrencePrinter {
+    const fn new() -> Self {
+        Self {
+            last_path: None,
+            count: 0,
+        }
+    }
+
+    fn advance(&mut self, path: &str) {
+        if self.count > 0 {
+            println!("  {}", "--".cyan());
+        }
+        if self.last_path.as_deref() != Some(path) {
+            println!("  {}", path.magenta().bold().underline());
+            self.last_path = Some(path.to_string());
+        }
+        self.count += 1;
+    }
+
+    fn print(&mut self, hit: &HitWithContext) {
+        self.advance(&hit.path);
+        for line in &hit.before {
+            search::print_context_line("  ", line);
+        }
+        println!(
+            "  {} {}",
+            "↪".cyan(),
+            search::highlight_match(
+                &hit.line_text,
+                Span {
+                    offset: hit.line_offset,
+                    len: hit.text.len()
+                }
+            )
+        );
+        for line in &hit.after {
+            search::print_context_line("  ", line);
+        }
+    }
+}
+
+fn print_marker_group(marker: &str, occurrences: &mut [HitWithContext]) {
+    occurrences.sort_by(|a, b| a.path.cmp(&b.path).then(a.line.cmp(&b.line)));
+    println!("{}, {} location(s)", marker.bold(), occurrences.len());
+    let mut printer = OccurrencePrinter::new();
+    for hit in occurrences.iter() {
+        printer.print(hit);
+    }
+    println!();
 }
 
 pub fn run(path: &Path) -> Result<()> {
     let hits = search::search(path, MARKER_RE)?;
-    let hits_ctx = search::add_context(hits, CONTEXT, CONTEXT);
+    let hits_ctx = search::add_context(hits, ContextWindow::symmetric(CONTEXT));
 
-    let mut index: BTreeMap<String, Vec<search::HitWithContext>> = BTreeMap::new();
+    let mut index: BTreeMap<String, Vec<HitWithContext>> = BTreeMap::new();
     for hit in hits_ctx {
         index.entry(hit.text.clone()).or_default().push(hit);
     }
 
     for (marker, mut occurrences) in index {
-        occurrences.sort_by(|a, b| a.path.cmp(&b.path).then(a.line.cmp(&b.line)));
-        let n = occurrences.len();
-        println!("{}, {} location(s)", marker.bold(), n);
-
-        let mut last_path: Option<String> = None;
-        for (i, hit) in occurrences.iter().enumerate() {
-            if i > 0 {
-                println!("  {}", "--".cyan());
-            }
-            if last_path.as_deref() != Some(&hit.path) {
-                println!("  {}", hit.path.magenta().bold().underline());
-                last_path = Some(hit.path.clone());
-            }
-            for (ln, text) in &hit.before {
-                search::print_context_line("  ", *ln, text);
-            }
-            println!(
-                "  {} {}",
-                "↪".cyan(),
-                highlight_match(&hit.line_text, hit.line_offset, hit.text.len())
-            );
-            for (ln, text) in &hit.after {
-                search::print_context_line("  ", *ln, text);
-            }
-        }
-        println!();
+        print_marker_group(&marker, &mut occurrences);
     }
 
     Ok(())
@@ -64,16 +85,21 @@ pub fn run(path: &Path) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::search;
 
     #[test]
     fn highlight_match_uses_given_offset_not_first_occurrence() {
         let marker = "nref-AABBCCDDEE00112233445";
         let line = format!("first {} second {}", marker, marker);
         let second_offset = line.rfind(marker).unwrap();
-        let result = highlight_match(&line, second_offset, marker.len());
-        // Everything before the second occurrence must be unchanged.
+        let result = search::highlight_match(
+            &line,
+            Span {
+                offset: second_offset,
+                len: marker.len(),
+            },
+        );
         assert!(result.starts_with(&line[..second_offset]));
-        // Everything after the second occurrence must be unchanged.
         assert!(result.ends_with(&line[second_offset + marker.len()..]));
     }
 }

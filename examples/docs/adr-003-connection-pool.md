@@ -1,8 +1,8 @@
 # ADR-003: Use a threaded connection pool for PostgreSQL
 
-**Status:** Accepted  
-**Date:** 2024-08-22  
-**Deciders:** backend-team  
+**Status:** Accepted
+**Date:** 2024-08-22
+**Deciders:** backend-team
 
 ## Context
 

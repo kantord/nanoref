@@ -1,8 +1,8 @@
 # Postmortem: API Degradation — 2024-11-15
 
-**Severity:** SEV-2  
-**Duration:** 14:32–16:08 UTC (96 minutes)  
-**Author:** platform-oncall  
+**Severity:** SEV-2
+**Duration:** 14:32–16:08 UTC (96 minutes)
+**Author:** platform-oncall
 
 ## Summary
 

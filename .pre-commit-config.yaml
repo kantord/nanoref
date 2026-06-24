@@ -1,5 +1,6 @@
 repos:
-  - repo: builtin
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
     hooks:
       - id: trailing-whitespace
       - id: end-of-file-fixer
@@ -25,5 +26,20 @@ repos:
       - id: cargo-deny
         name: cargo deny
         entry: cargo deny check
+        language: system
+        pass_filenames: false
+      - id: typos
+        name: typos
+        entry: typos
+        language: system
+        pass_filenames: false
+      - id: cargo-machete
+        name: cargo machete
+        entry: cargo machete
+        language: system
+        pass_filenames: false
+      - id: cargo-doc
+        name: cargo doc (no broken links)
+        entry: bash -c 'RUSTDOCFLAGS="-D warnings" cargo doc --no-deps'
         language: system
         pass_filenames: false

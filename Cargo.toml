@@ -38,3 +38,9 @@ grep-regex    = "0.1"
 grep-searcher = "0.1"
 nanoid        = "0.4"
 sha2          = "0.10"
+
+[dev-dependencies]
+assert_cmd  = "2"
+predicates  = "3"
+proptest    = "1"
+tempfile    = "3"

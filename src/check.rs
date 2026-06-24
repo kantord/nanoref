@@ -37,15 +37,24 @@ pub fn run(path: &Path) -> Result<usize> {
     let mut need_sep = false;
 
     for hit in hits_ctx {
-        let error_label = if !is_valid_shape(&hit.text) {
-            Some(format!("malformed: {}", hit.text))
+        // BROAD_RE is greedy — "nref-VALID28-suffix" matches as one long token.
+        // Truncate to MARKER_LEN so we validate the canonical-length prefix, not the
+        // whole greedy span.  This keeps `check` consistent with `ls`.
+        let candidate: &str = if hit.text.len() > MARKER_LEN {
+            &hit.text[..MARKER_LEN]
         } else {
-            let body = &hit.text[BODY_START..];
-            let b = hit.text.as_bytes();
+            &hit.text
+        };
+
+        let error_label = if !is_valid_shape(candidate) {
+            Some(format!("malformed: {}", candidate))
+        } else {
+            let body = &candidate[BODY_START..];
+            let b = candidate.as_bytes();
             let stored = (b[PREFIX_LEN] as char, b[PREFIX_LEN + 1] as char);
             let expected = check_chars(SALT_V1, body);
             if stored != expected {
-                Some(format!("bad checksum: {}", hit.text))
+                Some(format!("bad checksum: {}", candidate))
             } else {
                 None
             }
@@ -73,7 +82,7 @@ pub fn run(path: &Path) -> Result<usize> {
         println!(
             "{} {}",
             "↪".cyan(),
-            highlight_match(&hit.line_text, hit.line_offset, hit.text.len())
+            highlight_match(&hit.line_text, hit.line_offset, candidate.len())
         );
         for (ln, text) in &hit.after {
             search::print_context_line("", *ln, text);

@@ -24,26 +24,33 @@ enum Commands {
     Ls {
         #[arg(default_value = ".", value_name = "DIR")]
         path: PathBuf,
+        #[arg(long)]
+        json: bool,
     },
     /// Generate and print a new nanoref marker
-    Mint,
+    Mint {
+        #[arg(long)]
+        json: bool,
+    },
     /// Validate marker checksums and report errors
     Check {
         #[arg(default_value = ".", value_name = "DIR")]
         path: PathBuf,
+        #[arg(long)]
+        json: bool,
     },
 }
 
 fn main() -> Result<()> {
     let cli = Cli::parse();
     match cli.command {
-        Commands::Ls { path } => ls::run(&path),
-        Commands::Mint => {
-            mint::run();
+        Commands::Ls { path, json } => ls::run(&path, json),
+        Commands::Mint { json } => {
+            mint::run(json);
             Ok(())
         }
-        Commands::Check { path } => {
-            let errors = check::run(&path)?;
+        Commands::Check { path, json } => {
+            let errors = check::run(&path, json)?;
             if errors > 0 {
                 std::process::exit(1);
             }

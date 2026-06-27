@@ -2,6 +2,7 @@ use crate::checksum::{check_chars, SALT_V1};
 use crate::search::{self, ContextWindow, HitWithContext, Span};
 use anyhow::Result;
 use owo_colors::OwoColorize;
+use serde_json::json;
 use std::path::Path;
 
 const BROAD_RE: &str = r"\bnref-[A-Za-z0-9_-]{10,40}";
@@ -34,6 +35,25 @@ fn validate_hit(text: &str) -> Option<(String, usize)> {
     } else {
         Some((format!("malformed: {candidate}"), len))
     }
+}
+
+struct CollectedError {
+    hit: HitWithContext,
+    label: String,
+    candidate_len: usize,
+}
+
+fn collect_errors(hits_ctx: Vec<HitWithContext>) -> Vec<CollectedError> {
+    hits_ctx
+        .into_iter()
+        .filter_map(|hit| {
+            validate_hit(&hit.text).map(|(label, candidate_len)| CollectedError {
+                hit,
+                label,
+                candidate_len,
+            })
+        })
+        .collect()
 }
 
 fn print_context_block(hit: &HitWithContext, cand_len: usize) {
@@ -81,21 +101,44 @@ impl SectionTracker {
     }
 }
 
-pub fn run(path: &Path) -> Result<usize> {
+fn print_errors_human(errors: Vec<CollectedError>) {
+    let mut tracker = SectionTracker::new();
+    for e in errors {
+        tracker.advance(&e.hit.path);
+        print_context_block(&e.hit, e.candidate_len);
+        println!("{}", format!("error: {}", e.label).red().bold());
+    }
+}
+
+fn print_errors_json(errors: &[CollectedError]) {
+    let out: Vec<_> = errors
+        .iter()
+        .map(|e| {
+            let kind = if e.label.starts_with("bad checksum") {
+                "bad_checksum"
+            } else {
+                "malformed"
+            };
+            json!({
+                "path": e.hit.path,
+                "line": e.hit.line,
+                "kind": kind,
+                "marker": &e.hit.text[..e.candidate_len]
+            })
+        })
+        .collect();
+    println!("{}", serde_json::to_string_pretty(&out).unwrap_or_default());
+}
+
+pub fn run(path: &Path, json: bool) -> Result<usize> {
     let hits = search::search(path, BROAD_RE)?;
     let hits_ctx = search::add_context(hits, ContextWindow::symmetric(CONTEXT));
-    let mut tracker = SectionTracker::new();
-    let mut errors = 0;
-
-    for hit in hits_ctx {
-        let Some((label, cand_len)) = validate_hit(&hit.text) else {
-            continue;
-        };
-        errors += 1;
-        tracker.advance(&hit.path);
-        print_context_block(&hit, cand_len);
-        println!("{}", format!("error: {label}").red().bold());
+    let errors = collect_errors(hits_ctx);
+    let count = errors.len();
+    if json {
+        print_errors_json(&errors);
+    } else {
+        print_errors_human(errors);
     }
-
-    Ok(errors)
+    Ok(count)
 }

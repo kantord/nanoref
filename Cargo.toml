@@ -37,6 +37,7 @@ grep-matcher  = "0.1"
 grep-regex    = "0.1"
 grep-searcher = "0.1"
 nanoid        = "0.4"
+serde_json    = "1"
 sha2          = "0.10"
 
 [lints.rust]

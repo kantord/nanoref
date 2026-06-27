@@ -1,6 +1,7 @@
 use crate::search::{self, ContextWindow, HitWithContext, Span};
 use anyhow::Result;
 use owo_colors::OwoColorize;
+use serde_json::json;
 use std::collections::BTreeMap;
 use std::path::Path;
 
@@ -66,19 +67,39 @@ fn print_marker_group(marker: &str, occurrences: &mut [HitWithContext]) {
     println!();
 }
 
-pub fn run(path: &Path) -> Result<()> {
+fn print_human(index: BTreeMap<String, Vec<HitWithContext>>) {
+    for (marker, mut occurrences) in index {
+        print_marker_group(&marker, &mut occurrences);
+    }
+}
+
+fn print_json(index: &BTreeMap<String, Vec<HitWithContext>>) {
+    let out: Vec<_> = index
+        .iter()
+        .map(|(marker, locs)| {
+            json!({
+                "marker": marker,
+                "locations": locs.iter()
+                    .map(|h| json!({"path": h.path, "line": h.line}))
+                    .collect::<Vec<_>>()
+            })
+        })
+        .collect();
+    println!("{}", serde_json::to_string_pretty(&out).unwrap_or_default());
+}
+
+pub fn run(path: &Path, json: bool) -> Result<()> {
     let hits = search::search(path, MARKER_RE)?;
     let hits_ctx = search::add_context(hits, ContextWindow::symmetric(CONTEXT));
-
     let mut index: BTreeMap<String, Vec<HitWithContext>> = BTreeMap::new();
     for hit in hits_ctx {
         index.entry(hit.text.clone()).or_default().push(hit);
     }
-
-    for (marker, mut occurrences) in index {
-        print_marker_group(&marker, &mut occurrences);
+    if json {
+        print_json(&index);
+    } else {
+        print_human(index);
     }
-
     Ok(())
 }
 

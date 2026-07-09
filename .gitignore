@@ -2,3 +2,6 @@
 /mutants.out
 /mutants.out.old
 /.claude
+/tasks
+/esto.d.ts
+/tsconfig.esto.json
